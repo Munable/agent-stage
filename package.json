@@ -5,7 +5,8 @@
   "type": "module",
   "license": "Apache-2.0",
   "files": [
-    "dist",
+    "dist/*.d.ts",
+    "dist/*.js",
     "schema",
     "README.md",
     "LICENSE"
