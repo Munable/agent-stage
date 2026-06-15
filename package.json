@@ -1,0 +1,27 @@
+{
+  "name": "agent-stage-core",
+  "version": "0.1.0",
+  "description": "TypeScript stage frame decoder for public agent-stage frames.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "files": [
+    "dist",
+    "schema",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/stage-frame.d.ts",
+      "import": "./dist/stage-frame.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run frontend/test"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0",
+    "vitest": "^4.1.9"
+  }
+}

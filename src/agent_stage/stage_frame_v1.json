@@ -1,0 +1,24 @@
+{
+  "stage_frame_version": 1,
+  "frame_type": "stage_frame",
+  "description": "Generic presentation frame emitted by a stage director: registered character/cue tokens, an optional catalog asset call, and a type-tagged opaque card envelope. App protocols may embed this shape and extend it with app-specific fields declared in their own contract (see protocol_v1.json stage_frame.app_extension_fields). Token VALUES (states, fx, props, voice tags, asset ids) and card payload contracts are app-registered; this schema owns only the slots.",
+  "required_fields": ["character_state", "thinking_text", "fx", "prop", "card"],
+  "optional_fields": ["voice_tag", "asset_call"],
+  "field_kinds": {
+    "character_state": "registered_token",
+    "thinking_text": "public_text_or_null",
+    "fx": "registered_token_or_null",
+    "prop": "registered_token_or_null",
+    "card": "tagged_opaque_or_null",
+    "voice_tag": "registered_token_or_null",
+    "asset_call": "asset_call_or_null"
+  },
+  "card_envelope": {
+    "required_fields": ["type", "data"],
+    "rule": "type selects an app-registered card contract; data is validated by the app, never by the generic layer"
+  },
+  "asset_call": {
+    "required_fields": ["asset_id", "renderer", "anchor", "min_dwell_ms", "interruptible"],
+    "rule": "must equal the registered catalog entry for asset_id verbatim"
+  }
+}

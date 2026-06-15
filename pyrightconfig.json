@@ -1,0 +1,11 @@
+{
+  "include": ["src", "tests"],
+  "exclude": ["frontend"],
+  "pythonVersion": "3.11",
+  "typeCheckingMode": "basic",
+  "executionEnvironments": [
+    {
+      "root": "src"
+    }
+  ]
+}
