@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from agent_stage.director import stage_frame_violation
+import agent_stage.token_catalog as token_catalog
 from agent_stage.token_catalog import TokenCatalog, token_catalog_violation
 
 
@@ -25,6 +26,11 @@ def _catalog_data() -> dict:
 
 def test_valid_catalog_passes_and_extra_keys_are_ignored():
     assert token_catalog_violation(_catalog_data()) is None
+
+
+def test_token_catalog_docs_reference_package_owned_stage_frame_schema():
+    assert "shared/stage_frame_v1.json" not in (token_catalog.__doc__ or "")
+    assert "package-owned" in (token_catalog.__doc__ or "")
 
 
 def test_violations():

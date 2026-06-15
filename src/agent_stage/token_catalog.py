@@ -1,10 +1,11 @@
 """Stage token catalog (schema v1).
 
 A token catalog supplies the VALUES for the registered-token slots declared
-by shared/stage_frame_v1.json. It is a plain dict: each kind is a non-empty
-list of items shaped ``{"id": str, "description"?: str, ...}``; extra item
-keys and extra top-level keys are allowed and ignored (the schema owns the
-slots, the embedding app owns its instance data). ``voice_tags`` is optional.
+by the package-owned ``stage_frame_v1.json`` schema. It is a plain dict: each
+kind is a non-empty list of items shaped ``{"id": str, "description"?: str,
+...}``; extra item keys and extra top-level keys are allowed and ignored (the
+schema owns the slots, the embedding app owns its instance data).
+``voice_tags`` is optional.
 Motions, transitions, and asset data are app instance data, not part of the
 token schema.
 """

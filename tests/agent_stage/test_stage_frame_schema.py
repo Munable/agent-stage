@@ -7,6 +7,8 @@ from importlib import resources
 from pathlib import Path
 from typing import Any
 
+from agent_stage.director import stage_frame_violation
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -44,3 +46,7 @@ def test_stage_frame_schema_remains_format_neutral() -> None:
     assert "renderer" in schema["asset_call"]["required_fields"]
     assert "image_sequence" not in serialized
     assert "video" not in serialized
+
+
+def test_stage_frame_validator_docs_reference_owned_schema() -> None:
+    assert "shared/stage_frame_v1.json" not in (stage_frame_violation.__doc__ or "")
