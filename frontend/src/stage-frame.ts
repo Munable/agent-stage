@@ -1,8 +1,8 @@
-// Generic stage_frame decoder (shared/stage_frame_v1.json).
+// Generic stage_frame decoder (schema/stage_frame_v1.json).
 // Owns the slot semantics of a presentation frame; token VALUES, card payload
 // contracts, and app extension fields are supplied by the embedding app through
 // StageFrameRegistries.
-import { sanitizePayload, sanitizeText } from "./sanitize";
+import { sanitizePayload, sanitizeText } from "./sanitize.js";
 
 export type StageFrameCard = { type: string; data: Record<string, unknown> };
 
