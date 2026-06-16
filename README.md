@@ -10,24 +10,25 @@ sanitized public `TraceEvent` objects; Agent Stage maps those public events into
 signals and validates presentation frames. Hidden reasoning, provider payloads,
 credentials, app databases, and private tool internals stay outside this layer.
 
-## Packages
+## Source Boundary
 
-- Python: `agent-stage`
-- TypeScript: `agent-stage-core`
+This repository is the open-source boundary for Agent Stage. Registry
+publication is optional and requires a separate explicit decision; downstream
+apps should treat the GitHub source as the canonical public boundary.
+
+The package metadata remains in place so the repository can be used as:
+
+- Python source package: `agent-stage`
+- TypeScript source package metadata: `agent-stage-core`
 - License: Apache-2.0
 
-## Install
-
-```bash
-python -m pip install agent-stage
-npm install agent-stage-core
-```
-
-The initial repository scaffold can also be used from source:
+## From Source
 
 ```bash
 python -m pip install -e ".[dev]"
 npm install
+npm test -- --run
+npm run build
 ```
 
 ## Python Example

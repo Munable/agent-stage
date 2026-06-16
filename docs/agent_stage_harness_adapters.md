@@ -2,6 +2,10 @@
 
 How any agent harness feeds work events into `agent_stage`.
 
+This public contract document is owned by the Agent Stage source repository.
+Downstream app-specific adapter notes belong in downstream repositories, not
+in this contract.
+
 ## The contract
 
 An adapter is anything that yields `agent_stage.TraceEvent` for one turn —

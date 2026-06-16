@@ -3,6 +3,10 @@
 The stable recipe for configuring `agent_stage.StageDirector` in an embedding
 app. The neutral runnable form is the stage-demo example.
 
+This public contract document is owned by the Agent Stage source repository.
+Downstream app-specific director notes belong in downstream repositories, not
+in this contract.
+
 ## Prompt slots
 
 `assemble_director_prompt(persona, vocabulary_sections, sequencing_rules,
