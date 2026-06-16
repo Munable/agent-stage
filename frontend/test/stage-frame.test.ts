@@ -94,7 +94,7 @@ describe("decodeStageFrame", () => {
       { ...baseFrame, thinking_text: "working sk-abcdefghijklmnop1234" },
       registries,
     );
-    expect(frame?.thinking_text).toContain("[redacted_api_key]");
+    expect(frame?.thinking_text).toContain("[redacted]");
   });
 
   it("rejects frames missing required generic fields", () => {

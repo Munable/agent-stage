@@ -2,7 +2,7 @@
 // Owns the slot semantics of a presentation frame; token VALUES, card payload
 // contracts, and app extension fields are supplied by the embedding app through
 // StageFrameRegistries.
-import { sanitizePayload, sanitizeText } from "./sanitize.js";
+import { safePublicText, sanitizePublicPayload } from "./sanitize.js";
 
 export type StageFrameCard = { type: string; data: Record<string, unknown> };
 
@@ -52,7 +52,7 @@ function decodeCardEnvelope(
   if (typeof type !== "string") return undefined;
   if (!isRecord(data)) return undefined;
   if (!registries.validateCard(type, data)) return undefined;
-  const publicData = sanitizePayload(data);
+  const publicData = sanitizePublicPayload(data);
   if (!isRecord(publicData)) return undefined;
   return { type, data: publicData };
 }
@@ -108,7 +108,7 @@ export function decodeStageFrame(
     character_state: characterState,
     thinking_text:
       typeof value.thinking_text === "string"
-        ? sanitizeText(value.thinking_text, 480)
+        ? safePublicText(value.thinking_text, { maxChars: 480 })
         : value.thinking_text,
     fx: fx as string | null,
     prop: prop as string | null,

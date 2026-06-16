@@ -1,0 +1,154 @@
+{
+  "payload_cases": [
+    {
+      "name": "drops hidden and private keys recursively",
+      "input": {
+        "summary": "visible",
+        "chain_of_thought": "hidden",
+        "hidden-reasoning": "hidden",
+        "profile": {
+          "api_key": "sk-abcdefghijklmnop",
+          "raw_result": {
+            "x": 1
+          },
+          "visible": "safe"
+        },
+        "items": [
+          {
+            "authorization": "Bearer tokenvalue1234567890",
+            "name": "apple"
+          }
+        ]
+      },
+      "expected": {
+        "summary": "visible",
+        "profile": {
+          "visible": "safe"
+        },
+        "items": [
+          {
+            "name": "apple"
+          }
+        ]
+      }
+    },
+    {
+      "name": "redacts sensitive values inside public strings",
+      "input": {
+        "text": "key sk-abcdefghijklmnop bearer Bearer tokenvalue1234567890 jwt aaaaaaaaaaaaaaaaaaaa.bbbbbbbbbbbbbbbbbbbb.cccccccccc image data:image/png;base64,AAAABBBBCCCC",
+        "nested": [
+          "visible sk-abcdefghijklmnop"
+        ]
+      },
+      "expected": {
+        "text": "key [redacted] bearer [redacted] jwt [redacted] image [redacted]",
+        "nested": [
+          "visible [redacted]"
+        ]
+      }
+    },
+    {
+      "name": "redacts long base64-like public strings",
+      "input": {
+        "blob": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      },
+      "expected": {
+        "blob": "[redacted]"
+      }
+    },
+    {
+      "name": "replaces hidden reasoning strings with hidden sentinel",
+      "input": {
+        "text": "visible <think>secret</think>",
+        "list": [
+          "safe",
+          "thoughts: hidden"
+        ]
+      },
+      "expected": {
+        "text": "[internal_reasoning_redacted]",
+        "list": [
+          "safe",
+          "[internal_reasoning_redacted]"
+        ]
+      }
+    },
+    {
+      "name": "redacts non-finite numeric payload values",
+      "input": {
+        "finite": 12.5,
+        "nan": "__NON_FINITE_NAN__",
+        "infinity": "__NON_FINITE_INFINITY__"
+      },
+      "expected": {
+        "finite": 12.5,
+        "nan": "[redacted]",
+        "infinity": "[redacted]"
+      }
+    }
+  ],
+  "text_cases": [
+    {
+      "name": "redacts secrets and compacts whitespace",
+      "input": "  token sk-abcdefghijklmnop   ok  ",
+      "fallback": "",
+      "max_chars": 160,
+      "expected": "token [redacted] ok"
+    },
+    {
+      "name": "hidden text marker returns fallback",
+      "input": "chain_of_thought: reveal this",
+      "fallback": "Working",
+      "max_chars": 160,
+      "expected": "Working"
+    },
+    {
+      "name": "empty public text returns fallback",
+      "input": "   ",
+      "fallback": "Working",
+      "max_chars": 160,
+      "expected": "Working"
+    },
+    {
+      "name": "max chars truncates without ellipsis",
+      "input": "abcdef",
+      "fallback": "",
+      "max_chars": 3,
+      "expected": "abc"
+    }
+  ],
+  "drop_private_key_cases": [
+    {
+      "name": "drops private keys but keeps hidden keys for fail-loud validation",
+      "input": {
+        "api_key": "sk-abcdefghijklmnop",
+        "chain_of_thought": "hidden",
+        "public": "Bearer tokenvalue1234567890"
+      },
+      "expected": {
+        "chain_of_thought": "hidden",
+        "public": "[redacted]"
+      }
+    }
+  ],
+  "hidden_reasoning_cases": [
+    {
+      "name": "detects nested hidden keys",
+      "input": {
+        "nested": {
+          "thoughts": "hidden"
+        }
+      },
+      "expected": true
+    },
+    {
+      "name": "ignores safe public payloads",
+      "input": {
+        "nested": {
+          "summary": "safe"
+        }
+      },
+      "expected": false
+    }
+  ]
+}
