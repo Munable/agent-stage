@@ -158,6 +158,8 @@ export function dropPrivateKeys(value: unknown): unknown {
 export const SENSITIVE_KEYS = new Set([...HIDDEN_KEYS, ...PRIVATE_KEYS]);
 export const isSensitiveKey = (key: string): boolean => isHiddenKey(key) || isPrivateKey(key);
 export const sanitizeText = (text: string, maxChars?: number): string =>
-  safePublicText(text, { maxChars });
+  safePublicText(text, {
+    maxChars: maxChars ?? Number.MAX_SAFE_INTEGER,
+  });
 export const sanitizePayload = (value: unknown, _maxChars = 480): unknown =>
   sanitizePublicPayload(value);
