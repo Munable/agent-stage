@@ -85,7 +85,7 @@ export function isPrivateKey(key: unknown): boolean {
 
 export function containsHiddenTextMarker(value: string): boolean {
   const lowered = value.toLowerCase();
-  for (const marker of HIDDEN_TEXT_MARKERS) {
+  for (const marker of Array.from(HIDDEN_TEXT_MARKERS)) {
     if (lowered.includes(marker)) return true;
   }
   return HIDDEN_WORD_RE.test(lowered);
@@ -155,7 +155,10 @@ export function dropPrivateKeys(value: unknown): unknown {
 }
 
 // Backward-compatible TypeScript aliases retained for existing consumers.
-export const SENSITIVE_KEYS = new Set([...HIDDEN_KEYS, ...PRIVATE_KEYS]);
+export const SENSITIVE_KEYS = new Set([
+  ...Array.from(HIDDEN_KEYS),
+  ...Array.from(PRIVATE_KEYS),
+]);
 export const isSensitiveKey = (key: string): boolean => isHiddenKey(key) || isPrivateKey(key);
 export const sanitizeText = (text: string, maxChars?: number): string =>
   safePublicText(text, {
