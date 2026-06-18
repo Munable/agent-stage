@@ -11,7 +11,7 @@ Uses ONLY public `agent_stage` APIs; no app backend or private harness.
 
 ```bash
 python examples/stage-demo/run.py        # headless: prints a JSON summary
-python examples/stage-demo/server.py     # open http://127.0.0.1:8766
+npm run build && python examples/stage-demo/server.py  # open http://127.0.0.1:8766
 ```
 
 External-harness path (any language, plain NDJSON over HTTP):

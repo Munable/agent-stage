@@ -39,15 +39,90 @@ CATALOG = TokenCatalog.from_dict(
     }
 )
 
-ASSET_CALLS: dict[str, dict] = {
-    "emoji.guide.idle": {
+ASSET_DIRECTORY: list[dict[str, Any]] = [
+    {
         "asset_id": "emoji.guide.idle",
         "renderer": "emoji",
         "anchor": None,
         "min_dwell_ms": 400,
         "interruptible": True,
+        "playback": {"kind": "loop", "durationMs": 900},
+    },
+    {
+        "asset_id": "emoji.guide.thinking",
+        "renderer": "emoji",
+        "anchor": None,
+        "min_dwell_ms": 360,
+        "interruptible": False,
+        "playback": {"kind": "loop", "durationMs": 820},
+    },
+    {
+        "asset_id": "emoji.guide.working",
+        "renderer": "emoji",
+        "anchor": None,
+        "min_dwell_ms": 320,
+        "interruptible": False,
+        "playback": {"kind": "loop", "durationMs": 700},
+    },
+    {
+        "asset_id": "emoji.guide.presenting",
+        "renderer": "emoji",
+        "anchor": None,
+        "min_dwell_ms": 220,
+        "interruptible": True,
+        "playback": {"kind": "one-shot", "durationMs": 320},
+    },
+    {
+        "asset_id": "emoji.guide.celebrating",
+        "renderer": "emoji",
+        "anchor": None,
+        "min_dwell_ms": 220,
+        "interruptible": True,
+        "playback": {"kind": "one-shot", "durationMs": 420},
+    },
+]
+
+ASSET_CALLS: dict[str, dict] = {
+    entry["asset_id"]: {
+        "asset_id": entry["asset_id"],
+        "renderer": entry["renderer"],
+        "anchor": entry["anchor"],
+        "min_dwell_ms": entry["min_dwell_ms"],
+        "interruptible": entry["interruptible"],
     }
+    for entry in ASSET_DIRECTORY
 }
+
+STATE_TO_ASSET_ID = {
+    "idle": "emoji.guide.idle",
+    "thinking": "emoji.guide.thinking",
+    "working": "emoji.guide.working",
+    "presenting": "emoji.guide.presenting",
+    "celebrating": "emoji.guide.celebrating",
+}
+
+REFLEX_TABLE: dict[str, dict] = {
+    "emoji.guide.idle": {
+        "afterMs": 180,
+        "intervalMs": 900,
+        "variants": [{"id": "blink", "durationMs": 90}],
+    },
+    "emoji.guide.thinking": {
+        "afterMs": 120,
+        "intervalMs": 760,
+        "variants": [
+            {"id": "blink", "durationMs": 80},
+            {"id": "tilt", "durationMs": 120},
+        ],
+    },
+    "emoji.guide.working": {
+        "afterMs": 90,
+        "intervalMs": 620,
+        "variants": [{"id": "tap", "durationMs": 110}],
+    },
+}
+
+DEMO_PACING = {"kind": "preserve"}
 
 _EVENT_TO_STATE = {
     "observe": ("thinking", "Let me read this"),
@@ -106,6 +181,7 @@ TOOL_SPEC = {
                 "enum": sorted(CATALOG.ids("props")) + [None],
             },
             "card": {"type": ["object", "null"]},
+            "asset_call": {"type": ["object", "null"]},
         },
         "required": ["character_state"],
     },
@@ -141,6 +217,9 @@ async def scripted_model_call(
     }
     if state == "celebrating":
         frame["voice_tag"] = "tada"
+    asset_id = STATE_TO_ASSET_ID.get(state)
+    if asset_id is not None:
+        frame["asset_call"] = ASSET_CALLS[asset_id]
     return StructuredToolCall(
         call_id=f"scripted-{event_type}",
         name=tool_spec["name"],
