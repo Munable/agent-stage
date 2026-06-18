@@ -61,7 +61,12 @@ import { StageManager } from "agent-stage-core/stage-manager";
 ```
 
 ```ts
-const manager = new StageManager({ seamMs: 120 });
+const manager = new StageManager({
+  seamMs: 120,
+  reflexTable: {
+    idle: { afterMs: 180, intervalMs: 800, variants: [{ id: "blink", durationMs: 90 }] },
+  },
+});
 manager.startTurn("turn-1");
 manager.ingest({ turnId: "turn-1", frame: decodeStageFrame(rawFrame, registries)! });
 
@@ -69,7 +74,9 @@ const renderState = manager.tick(performance.now());
 ```
 
 `RenderState.seam` carries the outgoing frame during same-turn handoffs so a
-renderer can blend poses instead of snapping.
+renderer can blend poses instead of snapping. `RenderState.reflex` carries the
+currently selected local micro-motion, chosen deterministically from the
+injected table without changing the `StageFrame` contract.
 
 ## Demo
 

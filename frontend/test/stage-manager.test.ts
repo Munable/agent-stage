@@ -4,9 +4,10 @@ import type { StageFrame } from "../src/stage-frame";
 
 function frame(
   state: string,
-  opts: { minDwellMs?: number; interruptible?: boolean } = {},
+  opts: { minDwellMs?: number; interruptible?: boolean; assetId?: string } = {},
 ): StageFrame {
-  const hasAsset = opts.minDwellMs !== undefined || opts.interruptible !== undefined;
+  const hasAsset =
+    opts.minDwellMs !== undefined || opts.interruptible !== undefined || opts.assetId !== undefined;
   return {
     character_state: state,
     thinking_text: null,
@@ -15,7 +16,7 @@ function frame(
     card: null,
     asset_call: hasAsset
       ? {
-          asset_id: state,
+          asset_id: opts.assetId ?? state,
           renderer: "test",
           anchor: null,
           min_dwell_ms: opts.minDwellMs ?? 320,
@@ -38,6 +39,7 @@ describe("StageManager", () => {
     sm.ingest(tf("t1", frame("idle", { minDwellMs: 400, interruptible: true })));
 
     expect(sm.tick(0)?.seam).toBeNull();
+    expect(sm.tick(0)?.reflex).toBeNull();
 
     sm.ingest(tf("t1", frame("answer", { minDwellMs: 400, interruptible: false })));
 
@@ -52,6 +54,68 @@ describe("StageManager", () => {
 
     expect(sm.tick(110)?.seam?.progress).toBeCloseTo(0.5);
     expect(sm.tick(170)?.seam).toBeNull();
+  });
+
+  it("emits deterministic reflex variants while waiting between Director frames", () => {
+    const sm = new StageManager({
+      reflexTable: {
+        think: {
+          afterMs: 80,
+          intervalMs: 200,
+          variants: [
+            { id: "blink", durationMs: 40 },
+            { id: "tilt", durationMs: 60 },
+          ],
+        },
+      },
+    });
+    sm.startTurn("t1");
+    sm.ingest(tf("t1", frame("think", { minDwellMs: 999, interruptible: false })));
+
+    expect(sm.tick(0)?.reflex).toBeNull();
+    expect(sm.tick(79)?.reflex).toBeNull();
+
+    const first = sm.tick(80)?.reflex;
+    expect(first?.key).toBe("think");
+    expect(first?.variantId).toBe("blink");
+    expect(first?.slotIndex).toBe(0);
+    expect(first?.startedAtMs).toBe(80);
+    expect(first?.durationMs).toBe(40);
+    expect(first?.progress).toBe(0);
+
+    expect(sm.tick(100)?.reflex?.progress).toBeCloseTo(0.5);
+    expect(sm.tick(121)?.reflex).toBeNull();
+
+    const second = sm.tick(280)?.reflex;
+    expect(second?.variantId).toBe("tilt");
+    expect(second?.slotIndex).toBe(1);
+    expect(second?.startedAtMs).toBe(280);
+    expect(second?.durationMs).toBe(60);
+  });
+
+  it("prefers asset-specific reflex entries over the generic character state", () => {
+    const sm = new StageManager({
+      reflexTable: {
+        think: {
+          afterMs: 0,
+          intervalMs: 200,
+          variants: [{ id: "state-blink", durationMs: 80 }],
+        },
+        "seq.think": {
+          afterMs: 0,
+          intervalMs: 200,
+          variants: [{ id: "asset-bob", durationMs: 80 }],
+        },
+      },
+    });
+    sm.startTurn("t1");
+    sm.ingest(
+      tf("t1", frame("think", { minDwellMs: 999, interruptible: false, assetId: "seq.think" })),
+    );
+
+    const reflex = sm.tick(0)?.reflex;
+    expect(reflex?.key).toBe("seq.think");
+    expect(reflex?.variantId).toBe("asset-bob");
   });
 
   it("holds a non-interruptible frame for its min-dwell, then advances", () => {
@@ -106,6 +170,33 @@ describe("StageManager", () => {
     expect(sm.tick(5000)?.frame.character_state).toBe("result"); // holds its final pose
   });
 
+  it("suppresses reflex while a seam is still in flight", () => {
+    const sm = new StageManager({
+      seamMs: 120,
+      reflexTable: {
+        answer: {
+          afterMs: 0,
+          intervalMs: 200,
+          variants: [{ id: "settle", durationMs: 80 }],
+        },
+      },
+    });
+    sm.startTurn("t1");
+    sm.ingest(tf("t1", frame("idle", { minDwellMs: 400, interruptible: true })));
+    expect(sm.tick(0)?.frame.character_state).toBe("idle");
+
+    sm.ingest(tf("t1", frame("answer", { minDwellMs: 999, interruptible: false })));
+
+    const handoff = sm.tick(50);
+    expect(handoff?.seam).not.toBeNull();
+    expect(handoff?.reflex).toBeNull();
+
+    const settled = sm.tick(170)?.reflex;
+    expect(settled?.variantId).toBe("settle");
+    expect(settled?.startedAtMs).toBe(170);
+    expect(settled?.progress).toBe(0);
+  });
+
   it("does not carry a seam across turns that were left behind", () => {
     const sm = new StageManager({ seamMs: 120 });
     sm.startTurn("t1");
@@ -119,5 +210,28 @@ describe("StageManager", () => {
     expect(rs?.frame.character_state).toBe("observe");
     expect(rs?.turnId).toBe("t2");
     expect(rs?.seam).toBeNull();
+  });
+
+  it("drops an in-flight reflex when a newer turn takes over", () => {
+    const sm = new StageManager({
+      reflexTable: {
+        think: {
+          afterMs: 20,
+          intervalMs: 200,
+          variants: [{ id: "blink", durationMs: 80 }],
+        },
+      },
+    });
+    sm.startTurn("t1");
+    sm.ingest(tf("t1", frame("think", { minDwellMs: 999, interruptible: false })));
+    expect(sm.tick(0)?.frame.character_state).toBe("think");
+    expect(sm.tick(25)?.reflex?.variantId).toBe("blink");
+
+    sm.startTurn("t2");
+    sm.ingest(tf("t2", frame("observe")));
+
+    const rs = sm.tick(30);
+    expect(rs?.frame.character_state).toBe("observe");
+    expect(rs?.reflex).toBeNull();
   });
 });

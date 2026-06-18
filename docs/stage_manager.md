@@ -18,7 +18,7 @@ function of its inputs, so it is tested with plain values (see
 ## What the runtime covers now
 
 `frontend/src/stage-manager.ts` now implements the scheduler spine plus the
-first renderer-facing handoff primitive:
+first two renderer-facing motion primitives:
 
 - **Queue + advance** — frames play in arrival order; the server may run ahead.
 - **Min-dwell** — a frame is held for `asset_call.min_dwell_ms` so the character
@@ -29,14 +29,15 @@ first renderer-facing handoff primitive:
   `RenderState.seam`, giving renderers the outgoing frame, handoff start time,
   and normalized progress toward the new pose. Cross-turn switches do not seam:
   stale turns are dropped outright.
+- **Reflex** — waiting frames can emit deterministic local micro-reactions from
+  an injected table. Matching prefers `asset_id`, then `character_state`;
+  reflex is suppressed while a seam is active so the handoff motion stays clean.
 
 ## What to build on it next
 
-1. **Reflex** — instant local micro-reactions between Director frames, selected
-   from an injected micro-motion table.
-2. **Loop / one-shot** — looping idle/thinking beats vs. one-shot beats that
+1. **Loop / one-shot** — looping idle/thinking beats vs. one-shot beats that
    settle into a final pose, resolved from the asset catalog.
-3. **Pacing policy** — how aggressively to catch up when the server runs far ahead.
+2. **Pacing policy** — how aggressively to catch up when the server runs far ahead.
 
 Keep each addition reproducible from `(frames + turn lifecycle + nowMs)` and
 cover it with tests in the same style as the seed.
