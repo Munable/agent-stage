@@ -268,6 +268,64 @@ describe("StageManager", () => {
     expect(sm.tick(220)?.frame.character_state).toBe("idle");
   });
 
+  it("catches up by dropping older interruptible backlog frames", () => {
+    const sm = new StageManager({
+      pacing: { kind: "drop-intermediate", maxPendingFrames: 1 },
+    });
+    sm.startTurn("t1");
+    sm.ingest(tf("t1", frame("thinking", { minDwellMs: 300, interruptible: false })));
+    expect(sm.tick(0)?.frame.character_state).toBe("thinking");
+
+    sm.ingest(tf("t1", frame("working-1")));
+    sm.ingest(tf("t1", frame("working-2")));
+    sm.ingest(tf("t1", frame("presenting")));
+
+    expect(sm.tick(299)?.frame.character_state).toBe("thinking");
+    expect(sm.tick(300)?.frame.character_state).toBe("presenting");
+  });
+
+  it("keeps a pending one-shot beat even when backlog pressure drops other frames", () => {
+    const parsed = parseStageAssetDirectory([
+      {
+        asset_id: "emoji.ta-da",
+        renderer: "emoji",
+        anchor: null,
+        min_dwell_ms: 80,
+        interruptible: true,
+        playback: { kind: "one-shot", durationMs: 220 },
+      },
+    ]);
+    const sm = new StageManager({
+      pacing: { kind: "drop-intermediate", maxPendingFrames: 1 },
+      playbackCatalog: parsed.playbackCatalog,
+    });
+    sm.startTurn("t1");
+    sm.ingest(tf("t1", frame("thinking", { minDwellMs: 100, interruptible: false })));
+    expect(sm.tick(0)?.frame.character_state).toBe("thinking");
+
+    sm.ingest(tf("t1", frame("working-1")));
+    sm.ingest(
+      tf("t1", frame("celebrating", { minDwellMs: 80, interruptible: true, assetId: "emoji.ta-da" })),
+    );
+    sm.ingest(tf("t1", frame("idle")));
+
+    expect(sm.tick(100)?.frame.character_state).toBe("celebrating");
+    expect(sm.tick(320)?.frame.character_state).toBe("idle");
+  });
+
+  it("uses catch-up pacing by default when the queue runs ahead", () => {
+    const sm = new StageManager();
+    sm.startTurn("t1");
+    sm.ingest(tf("t1", frame("thinking", { minDwellMs: 200, interruptible: false })));
+    expect(sm.tick(0)?.frame.character_state).toBe("thinking");
+
+    sm.ingest(tf("t1", frame("working-1")));
+    sm.ingest(tf("t1", frame("working-2")));
+    sm.ingest(tf("t1", frame("presenting")));
+
+    expect(sm.tick(200)?.frame.character_state).toBe("presenting");
+  });
+
   it("holds the active frame when the queue is empty", () => {
     const sm = new StageManager();
     sm.startTurn("t1");

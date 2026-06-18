@@ -78,6 +78,7 @@ const manager = new StageManager({
   reflexTable: {
     idle: { afterMs: 180, intervalMs: 800, variants: [{ id: "blink", durationMs: 90 }] },
   },
+  pacing: { kind: "drop-intermediate", maxPendingFrames: 1 },
 });
 manager.startTurn("turn-1");
 manager.ingest({ turnId: "turn-1", frame: decodeStageFrame(rawFrame, registries)! });
@@ -90,7 +91,10 @@ renderer can blend poses instead of snapping. `RenderState.reflex` carries the
 currently selected local micro-motion, chosen deterministically from the
 injected table without changing the `StageFrame` contract. `RenderState.playback`
 describes whether the active asset is looping or has settled after a one-shot
-beat, with the catalog parsed from app-owned asset directory data.
+beat, with the catalog parsed from app-owned asset directory data. The default
+`pacing` policy drops older interruptible backlog frames when the server runs
+ahead, but keeps the newest pending frame and protects one-shot beats from
+being skipped before they play.
 
 ## Demo
 

@@ -76,6 +76,10 @@ export type RenderPlayback =
       readonly settled: boolean;
     };
 
+export type StagePacingPolicy =
+  | { readonly kind: "preserve" }
+  | { readonly kind: "drop-intermediate"; readonly maxPendingFrames: number };
+
 /** The frame to draw now, plus the local motion metadata that keeps it alive. */
 export type RenderState = {
   readonly frame: StageFrame;
@@ -99,6 +103,8 @@ export type StageManagerOptions = {
   readonly getReflexKeys?: (frame: StageFrame) => readonly string[];
   /** Parsed asset playback semantics keyed by asset id. */
   readonly playbackCatalog?: StageAssetPlaybackCatalog;
+  /** How aggressively the scheduler should shed backlog when the server runs ahead. */
+  readonly pacing?: StagePacingPolicy;
 };
 
 const minDwellOf = (frame: StageFrame, fallbackMs: number): number =>
@@ -150,6 +156,7 @@ type ActiveRender = {
 };
 
 export class StageManager {
+  private readonly pacing: StagePacingPolicy;
   private readonly defaultMinDwellMs: number;
   private readonly seamMs: number;
   private readonly reflexTable: ReflexTable;
@@ -160,12 +167,17 @@ export class StageManager {
   private currentTurnId: string | null = null;
 
   constructor({
+    pacing = { kind: "drop-intermediate", maxPendingFrames: 1 },
     defaultMinDwellMs = 320,
     seamMs = 120,
     reflexTable = {},
     getReflexKeys = reflexKeysOf,
     playbackCatalog = {},
   }: StageManagerOptions = {}) {
+    this.pacing =
+      pacing.kind === "drop-intermediate"
+        ? { kind: "drop-intermediate", maxPendingFrames: Math.max(1, pacing.maxPendingFrames) }
+        : pacing;
     this.defaultMinDwellMs = defaultMinDwellMs;
     this.seamMs = seamMs;
     this.reflexTable = reflexTable;
@@ -181,7 +193,9 @@ export class StageManager {
 
   /** Queue a frame for playback; frames from a turn that is not live are dropped. */
   ingest(turnFrame: TurnFrame): void {
-    if (turnFrame.turnId === this.currentTurnId) this.pending.push(turnFrame);
+    if (turnFrame.turnId !== this.currentTurnId) return;
+    this.pending.push(turnFrame);
+    this.applyPacing();
   }
 
   /** Close `turnId`: stop accepting frames for it and let the last one settle. */
@@ -347,5 +361,31 @@ export class StageManager {
     const playback = this.playbackCatalog[assetId];
     if (!playback || playback.kind !== "one-shot" || playback.durationMs <= 0) return true;
     return nowMs - active.enteredAtMs >= playback.durationMs;
+  }
+
+  // Keep the newest pending frame and any beats that would look wrong if skipped.
+  private applyPacing(): void {
+    const pacing = this.pacing;
+    if (pacing.kind !== "drop-intermediate") return;
+    while (this.pending.length > pacing.maxPendingFrames) {
+      const dropIndex = this.findDroppablePendingIndex();
+      if (dropIndex < 0) return;
+      this.pending.splice(dropIndex, 1);
+    }
+  }
+
+  private findDroppablePendingIndex(): number {
+    for (let index = 0; index < this.pending.length - 1; index += 1) {
+      if (this.isPacingDroppable(this.pending[index].frame)) return index;
+    }
+    return -1;
+  }
+
+  private isPacingDroppable(frame: StageFrame): boolean {
+    if (!interruptibleOf(frame)) return false;
+    const assetId = frame.asset_call?.asset_id;
+    if (!assetId) return true;
+    const playback = this.playbackCatalog[assetId];
+    return playback?.kind !== "one-shot";
   }
 }
