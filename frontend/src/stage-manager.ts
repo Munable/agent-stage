@@ -6,7 +6,7 @@
 // clock and no hidden state, so its output is fully determined by what was
 // ingested — which is what lets it be tested without a model or real timers.
 // Seam, reflex, and loop handling build on this spine; see docs/stage_manager.md.
-import type { StageFrame } from "./stage-frame.js";
+import type { StageFrame, StageFrameAssetCall } from "./stage-frame.js";
 
 /** A Director frame tagged with the turn that produced it. */
 export type TurnFrame = { readonly turnId: string; readonly frame: StageFrame };
@@ -19,6 +19,21 @@ export type RenderSeam = {
   readonly startedAtMs: number;
   readonly durationMs: number;
   readonly progress: number;
+};
+
+export type StageAssetPlayback =
+  | { readonly kind: "loop"; readonly durationMs: number }
+  | { readonly kind: "one-shot"; readonly durationMs: number };
+
+export type StageAssetPlaybackCatalog = Readonly<Record<string, StageAssetPlayback>>;
+
+export type StageAssetDirectoryEntry = StageFrameAssetCall & {
+  readonly playback: StageAssetPlayback | null;
+};
+
+export type ParsedStageAssetDirectory = {
+  readonly assetCatalog: Readonly<Record<string, Omit<StageFrameAssetCall, "asset_id">>>;
+  readonly playbackCatalog: StageAssetPlaybackCatalog;
 };
 
 export type ReflexVariant = {
@@ -43,6 +58,24 @@ export type RenderReflex = {
   readonly progress: number;
 };
 
+export type RenderPlayback =
+  | {
+      readonly kind: "loop";
+      readonly assetId: string;
+      readonly startedAtMs: number;
+      readonly durationMs: number;
+      readonly iteration: number;
+      readonly progress: number;
+    }
+  | {
+      readonly kind: "one-shot";
+      readonly assetId: string;
+      readonly startedAtMs: number;
+      readonly durationMs: number;
+      readonly progress: number;
+      readonly settled: boolean;
+    };
+
 /** The frame to draw now, plus the local motion metadata that keeps it alive. */
 export type RenderState = {
   readonly frame: StageFrame;
@@ -52,6 +85,7 @@ export type RenderState = {
   readonly interruptible: boolean;
   readonly seam: RenderSeam | null;
   readonly reflex: RenderReflex | null;
+  readonly playback: RenderPlayback | null;
 };
 
 export type StageManagerOptions = {
@@ -63,6 +97,8 @@ export type StageManagerOptions = {
   readonly reflexTable?: ReflexTable;
   /** Override how a frame resolves the reflex entries that may match it. */
   readonly getReflexKeys?: (frame: StageFrame) => readonly string[];
+  /** Parsed asset playback semantics keyed by asset id. */
+  readonly playbackCatalog?: StageAssetPlaybackCatalog;
 };
 
 const minDwellOf = (frame: StageFrame, fallbackMs: number): number =>
@@ -83,6 +119,25 @@ const progressOf = (elapsedMs: number, durationMs: number): number => {
   return elapsedMs / durationMs;
 };
 
+export function parseStageAssetDirectory(
+  entries: readonly StageAssetDirectoryEntry[],
+): ParsedStageAssetDirectory {
+  const assetCatalog: Record<string, Omit<StageFrameAssetCall, "asset_id">> = {};
+  const playbackCatalog: Record<string, StageAssetPlayback> = {};
+
+  for (const entry of entries) {
+    assetCatalog[entry.asset_id] = {
+      renderer: entry.renderer,
+      anchor: entry.anchor,
+      min_dwell_ms: entry.min_dwell_ms,
+      interruptible: entry.interruptible,
+    };
+    if (entry.playback) playbackCatalog[entry.asset_id] = entry.playback;
+  }
+
+  return { assetCatalog, playbackCatalog };
+}
+
 type ActiveRender = {
   readonly turn: TurnFrame;
   readonly enteredAtMs: number;
@@ -99,6 +154,7 @@ export class StageManager {
   private readonly seamMs: number;
   private readonly reflexTable: ReflexTable;
   private readonly getReflexKeys: (frame: StageFrame) => readonly string[];
+  private readonly playbackCatalog: StageAssetPlaybackCatalog;
   private pending: TurnFrame[] = [];
   private active: ActiveRender | null = null;
   private currentTurnId: string | null = null;
@@ -108,11 +164,13 @@ export class StageManager {
     seamMs = 120,
     reflexTable = {},
     getReflexKeys = reflexKeysOf,
+    playbackCatalog = {},
   }: StageManagerOptions = {}) {
     this.defaultMinDwellMs = defaultMinDwellMs;
     this.seamMs = seamMs;
     this.reflexTable = reflexTable;
     this.getReflexKeys = getReflexKeys;
+    this.playbackCatalog = playbackCatalog;
   }
 
   /** Make `turnId` the live turn and abandon frames still queued from older ones. */
@@ -157,6 +215,7 @@ export class StageManager {
       interruptible: interruptibleOf(frame),
       seam,
       reflex: this.renderReflex(active, nowMs, seam),
+      playback: this.renderPlayback(active, nowMs),
     };
   }
 
@@ -165,6 +224,7 @@ export class StageManager {
     const active = this.active;
     if (!active) return true; // nothing is playing yet
     if (active.turn.turnId !== this.currentTurnId) return true; // its turn was left behind
+    if (!this.isPlaybackSettled(active, nowMs)) return false; // one-shot beats must land first
     if (interruptibleOf(active.turn.frame)) return true; // this beat may be cut short
     return nowMs - active.enteredAtMs >= minDwellOf(active.turn.frame, this.defaultMinDwellMs);
   }
@@ -248,5 +308,44 @@ export class StageManager {
       if (entry) return { key, entry };
     }
     return null;
+  }
+
+  private renderPlayback(active: ActiveRender, nowMs: number): RenderPlayback | null {
+    const assetId = active.turn.frame.asset_call?.asset_id;
+    if (!assetId) return null;
+    const playback = this.playbackCatalog[assetId];
+    if (!playback || playback.durationMs <= 0) return null;
+
+    const elapsedMs = Math.max(0, nowMs - active.enteredAtMs);
+    if (playback.kind === "loop") {
+      const iteration = Math.floor(elapsedMs / playback.durationMs);
+      const startedAtMs = active.enteredAtMs + iteration * playback.durationMs;
+      return {
+        kind: "loop",
+        assetId,
+        startedAtMs,
+        durationMs: playback.durationMs,
+        iteration,
+        progress: progressOf(nowMs - startedAtMs, playback.durationMs),
+      };
+    }
+
+    const settled = elapsedMs >= playback.durationMs;
+    return {
+      kind: "one-shot",
+      assetId,
+      startedAtMs: active.enteredAtMs,
+      durationMs: playback.durationMs,
+      progress: settled ? 1 : progressOf(elapsedMs, playback.durationMs),
+      settled,
+    };
+  }
+
+  private isPlaybackSettled(active: ActiveRender, nowMs: number): boolean {
+    const assetId = active.turn.frame.asset_call?.asset_id;
+    if (!assetId) return true;
+    const playback = this.playbackCatalog[assetId];
+    if (!playback || playback.kind !== "one-shot" || playback.durationMs <= 0) return true;
+    return nowMs - active.enteredAtMs >= playback.durationMs;
   }
 }

@@ -57,12 +57,24 @@ signal = build_stage_signal(
 
 ```ts
 import { decodeStageFrame } from "agent-stage-core";
-import { StageManager } from "agent-stage-core/stage-manager";
+import { parseStageAssetDirectory, StageManager } from "agent-stage-core/stage-manager";
 ```
 
 ```ts
+const assets = parseStageAssetDirectory([
+  {
+    asset_id: "emoji.idle.loop",
+    renderer: "emoji",
+    anchor: null,
+    min_dwell_ms: 400,
+    interruptible: true,
+    playback: { kind: "loop", durationMs: 900 },
+  },
+]);
+
 const manager = new StageManager({
   seamMs: 120,
+  playbackCatalog: assets.playbackCatalog,
   reflexTable: {
     idle: { afterMs: 180, intervalMs: 800, variants: [{ id: "blink", durationMs: 90 }] },
   },
@@ -76,7 +88,9 @@ const renderState = manager.tick(performance.now());
 `RenderState.seam` carries the outgoing frame during same-turn handoffs so a
 renderer can blend poses instead of snapping. `RenderState.reflex` carries the
 currently selected local micro-motion, chosen deterministically from the
-injected table without changing the `StageFrame` contract.
+injected table without changing the `StageFrame` contract. `RenderState.playback`
+describes whether the active asset is looping or has settled after a one-shot
+beat, with the catalog parsed from app-owned asset directory data.
 
 ## Demo
 

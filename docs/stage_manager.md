@@ -18,7 +18,7 @@ function of its inputs, so it is tested with plain values (see
 ## What the runtime covers now
 
 `frontend/src/stage-manager.ts` now implements the scheduler spine plus the
-first two renderer-facing motion primitives:
+first three renderer-facing motion primitives:
 
 - **Queue + advance** — frames play in arrival order; the server may run ahead.
 - **Min-dwell** — a frame is held for `asset_call.min_dwell_ms` so the character
@@ -32,12 +32,14 @@ first two renderer-facing motion primitives:
 - **Reflex** — waiting frames can emit deterministic local micro-reactions from
   an injected table. Matching prefers `asset_id`, then `character_state`;
   reflex is suppressed while a seam is active so the handoff motion stays clean.
+- **Loop / one-shot** — app-owned asset directory data is parsed into playback
+  semantics. Looping assets expose a repeating phase; one-shot beats must play
+  through once before the scheduler will yield them, then they settle into a
+  held final pose.
 
 ## What to build on it next
 
-1. **Loop / one-shot** — looping idle/thinking beats vs. one-shot beats that
-   settle into a final pose, resolved from the asset catalog.
-2. **Pacing policy** — how aggressively to catch up when the server runs far ahead.
+1. **Pacing policy** — how aggressively to catch up when the server runs far ahead.
 
 Keep each addition reproducible from `(frames + turn lifecycle + nowMs)` and
 cover it with tests in the same style as the seed.
