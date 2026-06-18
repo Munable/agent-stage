@@ -57,9 +57,19 @@ signal = build_stage_signal(
 
 ```ts
 import { decodeStageFrame } from "agent-stage-core";
+import { StageManager } from "agent-stage-core/stage-manager";
 ```
 
-The renderer example is pending asset-format decision.
+```ts
+const manager = new StageManager({ seamMs: 120 });
+manager.startTurn("turn-1");
+manager.ingest({ turnId: "turn-1", frame: decodeStageFrame(rawFrame, registries)! });
+
+const renderState = manager.tick(performance.now());
+```
+
+`RenderState.seam` carries the outgoing frame during same-turn handoffs so a
+renderer can blend poses instead of snapping.
 
 ## Demo
 

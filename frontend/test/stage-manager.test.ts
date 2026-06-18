@@ -32,6 +32,28 @@ describe("StageManager", () => {
     expect(new StageManager().tick(0)).toBeNull();
   });
 
+  it("starts cold, then exposes a seam while one frame flows into the next", () => {
+    const sm = new StageManager({ seamMs: 120 });
+    sm.startTurn("t1");
+    sm.ingest(tf("t1", frame("idle", { minDwellMs: 400, interruptible: true })));
+
+    expect(sm.tick(0)?.seam).toBeNull();
+
+    sm.ingest(tf("t1", frame("answer", { minDwellMs: 400, interruptible: false })));
+
+    const entering = sm.tick(50);
+    expect(entering?.frame.character_state).toBe("answer");
+    expect(entering?.seam?.outgoingFrame.character_state).toBe("idle");
+    expect(entering?.seam?.outgoingTurnId).toBe("t1");
+    expect(entering?.seam?.outgoingEnteredAtMs).toBe(0);
+    expect(entering?.seam?.startedAtMs).toBe(50);
+    expect(entering?.seam?.durationMs).toBe(120);
+    expect(entering?.seam?.progress).toBe(0);
+
+    expect(sm.tick(110)?.seam?.progress).toBeCloseTo(0.5);
+    expect(sm.tick(170)?.seam).toBeNull();
+  });
+
   it("holds a non-interruptible frame for its min-dwell, then advances", () => {
     const sm = new StageManager();
     sm.startTurn("t1");
@@ -82,5 +104,20 @@ describe("StageManager", () => {
     sm.endTurn("t1");
     sm.ingest(tf("t1", frame("idle"))); // turn is closed: dropped
     expect(sm.tick(5000)?.frame.character_state).toBe("result"); // holds its final pose
+  });
+
+  it("does not carry a seam across turns that were left behind", () => {
+    const sm = new StageManager({ seamMs: 120 });
+    sm.startTurn("t1");
+    sm.ingest(tf("t1", frame("result", { minDwellMs: 999, interruptible: false })));
+    expect(sm.tick(0)?.frame.character_state).toBe("result");
+
+    sm.startTurn("t2");
+    sm.ingest(tf("t2", frame("observe")));
+
+    const rs = sm.tick(10);
+    expect(rs?.frame.character_state).toBe("observe");
+    expect(rs?.turnId).toBe("t2");
+    expect(rs?.seam).toBeNull();
   });
 });

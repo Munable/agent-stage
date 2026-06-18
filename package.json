@@ -1,7 +1,7 @@
 {
   "name": "agent-stage-core",
   "version": "0.1.2",
-  "description": "TypeScript stage frame decoder for public agent-stage frames.",
+  "description": "TypeScript stage frame decoder and playback runtime for public agent-stage frames.",
   "type": "module",
   "license": "Apache-2.0",
   "files": [
@@ -16,6 +16,10 @@
       "types": "./dist/stage-frame.d.ts",
       "import": "./dist/stage-frame.js"
     },
+    "./stage-manager": {
+      "types": "./dist/stage-manager.d.ts",
+      "import": "./dist/stage-manager.js"
+    },
     "./sanitize": {
       "types": "./dist/sanitize.d.ts",
       "import": "./dist/sanitize.js"
@@ -24,7 +28,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run frontend/test",
-    "test:dist": "node -e \"await import('./dist/stage-frame.js').then((m) => { if (typeof m.decodeStageFrame !== 'function') throw new Error('decodeStageFrame export missing') }); await import('./dist/sanitize.js').then((m) => { if (typeof m.sanitizePublicPayload !== 'function') throw new Error('sanitizePublicPayload export missing') })\""
+    "test:dist": "node -e \"await import('./dist/stage-frame.js').then((m) => { if (typeof m.decodeStageFrame !== 'function') throw new Error('decodeStageFrame export missing') }); await import('./dist/stage-manager.js').then((m) => { if (typeof m.StageManager !== 'function') throw new Error('StageManager export missing') }); await import('./dist/sanitize.js').then((m) => { if (typeof m.sanitizePublicPayload !== 'function') throw new Error('sanitizePublicPayload export missing') })\""
   },
   "devDependencies": {
     "typescript": "^5.9.0",
