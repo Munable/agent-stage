@@ -18,7 +18,7 @@ function of its inputs, so it is tested with plain values (see
 ## What the runtime covers now
 
 `frontend/src/stage-manager.ts` now implements the scheduler spine plus the
-first four renderer-facing motion primitives:
+first five renderer-facing motion primitives:
 
 - **Queue + advance** — frames play in arrival order; the server may run ahead.
 - **Min-dwell** — a frame is held for `asset_call.min_dwell_ms` so the character
@@ -39,11 +39,14 @@ first four renderer-facing motion primitives:
 - **Pacing** — backlog is shed deterministically when the server runs ahead.
   The scheduler drops older interruptible intermediate frames, keeps the newest
   pending frame, and never skips a pending one-shot beat that has not played yet.
+- **Reference renderer** — `frontend/src/reference-renderer.ts` turns the full
+  `RenderState` surface into a tiny CSS/emoji stage so the runtime can be
+  exercised in a browser before any app-specific renderer exists.
 
 ## What to build on it next
 
-1. **Reference renderer** — a minimal CSS/emoji renderer that can draw the
-   full `RenderState` surface in the browser.
+1. **Stage demo integration** — wire the browser demo through the real
+   `StageManager` + reference renderer loop so the character visibly performs.
 
 Keep each addition reproducible from `(frames + turn lifecycle + nowMs)` and
 cover it with tests in the same style as the seed.

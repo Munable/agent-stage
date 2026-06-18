@@ -58,6 +58,7 @@ signal = build_stage_signal(
 ```ts
 import { decodeStageFrame } from "agent-stage-core";
 import { parseStageAssetDirectory, StageManager } from "agent-stage-core/stage-manager";
+import { createReferenceRenderer } from "agent-stage-core/reference-renderer";
 ```
 
 ```ts
@@ -83,7 +84,8 @@ const manager = new StageManager({
 manager.startTurn("turn-1");
 manager.ingest({ turnId: "turn-1", frame: decodeStageFrame(rawFrame, registries)! });
 
-const renderState = manager.tick(performance.now());
+const renderer = createReferenceRenderer(document.getElementById("stage-root")!);
+renderer.render(manager.tick(performance.now()));
 ```
 
 `RenderState.seam` carries the outgoing frame during same-turn handoffs so a
@@ -94,7 +96,9 @@ describes whether the active asset is looping or has settled after a one-shot
 beat, with the catalog parsed from app-owned asset directory data. The default
 `pacing` policy drops older interruptible backlog frames when the server runs
 ahead, but keeps the newest pending frame and protects one-shot beats from
-being skipped before they play.
+being skipped before they play. The reference renderer in
+`agent-stage-core/reference-renderer` is intentionally small: CSS + emoji,
+enough to visualize the full `RenderState` surface in a browser or demo.
 
 ## Demo
 
