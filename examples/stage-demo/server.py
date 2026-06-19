@@ -13,13 +13,16 @@ from __future__ import annotations
 import asyncio
 import importlib.util
 import json
+import mimetypes
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Iterable
 
 ROOT = Path(__file__).resolve().parents[2]
+SRC = ROOT / "src"
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(SRC))
 
 from agent_stage import NdjsonIngestStats, iter_ndjson_trace_events  # noqa: E402
 
@@ -42,46 +45,39 @@ INDEX = """<!doctype html>
 <html lang="en">
 <meta charset="utf-8" />
 <title>Agent Stage Demo</title>
-<body style="font-family: system-ui; max-width: 40rem; margin: 2rem auto;">
-  <h1>Agent Stage Demo</h1>
-  <div id="stage" style="font-size: 4rem;">🙂</div>
-  <div id="bubble" style="min-height: 1.5rem; color: #555;"></div>
-  <pre id="card" style="background: #f6f6f6; padding: .5rem;"></pre>
-  <button id="run">Run scripted turn</button>
-  <script>
-    const EMOJI = {idle: "🙂", thinking: "🤔", working: "🔧",
-                   presenting: "📋", celebrating: "🎉"};
-    const stage = document.getElementById("stage");
-    const bubble = document.getElementById("bubble");
-    const card = document.getElementById("card");
-    document.getElementById("run").onclick = async () => {
-      card.textContent = "";
-      const trace = await (await fetch("/trace.ndjson")).text();
-      const res = await fetch("/turn", { method: "POST", body: trace });
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\\n");
-        buffer = lines.pop() || "";
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          const frame = JSON.parse(line);
-          if (frame.type === "turn_summary") continue;
-          stage.textContent = EMOJI[frame.character_state] || "🙂";
-          bubble.textContent = frame.thinking_text || "";
-          if (frame.card) card.textContent = JSON.stringify(frame.card, null, 2);
-          await new Promise(r => setTimeout(r, 400));
-        }
-      }
-    };
+<body style="margin:0; background:#f3ead8; color:#2f2419; font-family:ui-rounded, 'SF Pro Rounded', sans-serif;">
+  <main style="max-width:48rem; margin:0 auto; padding:2rem 1.25rem 3rem;">
+    <h1 style="margin:0 0 .5rem;">Agent Stage Demo</h1>
+    <p style="margin:0 0 1rem; max-width:38rem; line-height:1.5;">
+      Scripted director events, real browser-side StageManager playback, and the
+      reference renderer running end to end.
+    </p>
+    <div style="display:flex; gap:.75rem; align-items:center; margin-bottom:1rem;">
+      <button id="run" style="padding:.7rem 1rem; border-radius:999px; border:0; background:#2f2419; color:#fff;">
+        Run scripted turn
+      </button>
+      <span id="status" style="font-size:.95rem; opacity:.75;">Loading...</span>
+    </div>
+    <div id="stage-root"></div>
+  </main>
+  <script type="module">
+    import { attachStageDemo } from "/dist/stage-demo-player.js";
+
+    await attachStageDemo({
+      root: document.getElementById("stage-root"),
+      runButton: document.getElementById("run"),
+      statusNode: document.getElementById("status"),
+      traceUrl: "/trace.ndjson",
+      turnUrl: "/turn",
+      configUrl: "/stage-config.json",
+    });
   </script>
 </body>
 </html>
 """
+
+
+DIST_ROOT = ROOT / "dist"
 
 
 async def respond_to_turn(lines: Iterable[bytes | str], output: Any) -> NdjsonIngestStats:
@@ -108,10 +104,38 @@ async def respond_to_turn(lines: Iterable[bytes | str], output: Any) -> NdjsonIn
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
+        if self.path == "/stage-config.json":
+            body = json.dumps(
+                {
+                    "assetDirectory": stage_setup.ASSET_DIRECTORY,
+                    "reflexTable": stage_setup.REFLEX_TABLE,
+                    "pacing": stage_setup.DEMO_PACING,
+                },
+                ensure_ascii=False,
+            ).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(body)
+            return
         if self.path == "/trace.ndjson":
             body = harness.scripted_turn_ndjson().encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "application/x-ndjson; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if self.path.startswith("/dist/"):
+            rel = self.path[len("/dist/"):]
+            target = (DIST_ROOT / rel).resolve()
+            if not str(target).startswith(str(DIST_ROOT.resolve())) or not target.is_file():
+                self.send_response(404)
+                self.end_headers()
+                return
+            body = target.read_bytes()
+            self.send_response(200)
+            content_type, _ = mimetypes.guess_type(str(target))
+            self.send_header("Content-Type", f"{content_type or 'application/octet-stream'}; charset=utf-8")
             self.end_headers()
             self.wfile.write(body)
             return

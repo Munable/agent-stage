@@ -57,9 +57,48 @@ signal = build_stage_signal(
 
 ```ts
 import { decodeStageFrame } from "agent-stage-core";
+import { parseStageAssetDirectory, StageManager } from "agent-stage-core/stage-manager";
+import { createReferenceRenderer } from "agent-stage-core/reference-renderer";
 ```
 
-The renderer example is pending asset-format decision.
+```ts
+const assets = parseStageAssetDirectory([
+  {
+    asset_id: "emoji.idle.loop",
+    renderer: "emoji",
+    anchor: null,
+    min_dwell_ms: 400,
+    interruptible: true,
+    playback: { kind: "loop", durationMs: 900 },
+  },
+]);
+
+const manager = new StageManager({
+  seamMs: 120,
+  playbackCatalog: assets.playbackCatalog,
+  reflexTable: {
+    idle: { afterMs: 180, intervalMs: 800, variants: [{ id: "blink", durationMs: 90 }] },
+  },
+  pacing: { kind: "drop-intermediate", maxPendingFrames: 1 },
+});
+manager.startTurn("turn-1");
+manager.ingest({ turnId: "turn-1", frame: decodeStageFrame(rawFrame, registries)! });
+
+const renderer = createReferenceRenderer(document.getElementById("stage-root")!);
+renderer.render(manager.tick(performance.now()));
+```
+
+`RenderState.seam` carries the outgoing frame during same-turn handoffs so a
+renderer can blend poses instead of snapping. `RenderState.reflex` carries the
+currently selected local micro-motion, chosen deterministically from the
+injected table without changing the `StageFrame` contract. `RenderState.playback`
+describes whether the active asset is looping or has settled after a one-shot
+beat, with the catalog parsed from app-owned asset directory data. The default
+`pacing` policy drops older interruptible backlog frames when the server runs
+ahead, but keeps the newest pending frame and protects one-shot beats from
+being skipped before they play. The reference renderer in
+`agent-stage-core/reference-renderer` is intentionally small: CSS + emoji,
+enough to visualize the full `RenderState` surface in a browser or demo.
 
 ## Demo
 

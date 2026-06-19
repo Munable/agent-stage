@@ -15,25 +15,38 @@ own — `tick(nowMs)` is driven by the host's animation loop. That keeps it a pu
 function of its inputs, so it is tested with plain values (see
 `frontend/test/stage-manager.test.ts`).
 
-## What the seed covers
+## What the runtime covers now
 
-`frontend/src/stage-manager.ts` implements the scheduler spine:
+`frontend/src/stage-manager.ts` now implements the scheduler spine plus the
+first five renderer-facing motion primitives:
 
 - **Queue + advance** — frames play in arrival order; the server may run ahead.
 - **Min-dwell** — a frame is held for `asset_call.min_dwell_ms` so the character
   never flickers, unless it is `interruptible` and a newer frame is ready.
 - **Turn isolation** — frames carry a `turnId`; once a newer turn starts, the
   older turn's frames (queued or on screen) are abandoned.
+- **Seam** — same-turn handoffs expose a short shared transition window in
+  `RenderState.seam`, giving renderers the outgoing frame, handoff start time,
+  and normalized progress toward the new pose. Cross-turn switches do not seam:
+  stale turns are dropped outright.
+- **Reflex** — waiting frames can emit deterministic local micro-reactions from
+  an injected table. Matching prefers `asset_id`, then `character_state`;
+  reflex is suppressed while a seam is active so the handoff motion stays clean.
+- **Loop / one-shot** — app-owned asset directory data is parsed into playback
+  semantics. Looping assets expose a repeating phase; one-shot beats must play
+  through once before the scheduler will yield them, then they settle into a
+  held final pose.
+- **Pacing** — backlog is shed deterministically when the server runs ahead.
+  The scheduler drops older interruptible intermediate frames, keeps the newest
+  pending frame, and never skips a pending one-shot beat that has not played yet.
+- **Reference renderer** — `frontend/src/reference-renderer.ts` turns the full
+  `RenderState` surface into a tiny CSS/emoji stage so the runtime can be
+  exercised in a browser before any app-specific renderer exists.
 
 ## What to build on it next
 
-1. **Seam** — a shared transition window so one frame flows into the next with no
-   visible snap (the hardest part of feeling alive).
-2. **Reflex** — instant local micro-reactions between Director frames, selected
-   from an injected micro-motion table.
-3. **Loop / one-shot** — looping idle/thinking beats vs. one-shot beats that
-   settle into a final pose, resolved from the asset catalog.
-4. **Pacing policy** — how aggressively to catch up when the server runs far ahead.
+1. **Stage demo integration** — wire the browser demo through the real
+   `StageManager` + reference renderer loop so the character visibly performs.
 
 Keep each addition reproducible from `(frames + turn lifecycle + nowMs)` and
 cover it with tests in the same style as the seed.
