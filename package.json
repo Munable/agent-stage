@@ -16,6 +16,10 @@
       "types": "./dist/stage-frame.d.ts",
       "import": "./dist/stage-frame.js"
     },
+    "./renderer-registry": {
+      "types": "./dist/renderer-registry.d.ts",
+      "import": "./dist/renderer-registry.js"
+    },
     "./reference-renderer": {
       "types": "./dist/reference-renderer.d.ts",
       "import": "./dist/reference-renderer.js"
@@ -23,6 +27,10 @@
     "./stage-manager": {
       "types": "./dist/stage-manager.d.ts",
       "import": "./dist/stage-manager.js"
+    },
+    "./video-renderer": {
+      "types": "./dist/video-renderer.d.ts",
+      "import": "./dist/video-renderer.js"
     },
     "./sanitize": {
       "types": "./dist/sanitize.d.ts",
@@ -32,7 +40,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run frontend/test",
-    "test:dist": "node -e \"await import('./dist/stage-frame.js').then((m) => { if (typeof m.decodeStageFrame !== 'function') throw new Error('decodeStageFrame export missing') }); await import('./dist/stage-manager.js').then((m) => { if (typeof m.StageManager !== 'function') throw new Error('StageManager export missing'); if (typeof m.parseStageAssetDirectory !== 'function') throw new Error('parseStageAssetDirectory export missing') }); await import('./dist/reference-renderer.js').then((m) => { if (typeof m.createReferenceRenderer !== 'function') throw new Error('createReferenceRenderer export missing'); if (typeof m.describeReferenceRenderState !== 'function') throw new Error('describeReferenceRenderState export missing') }); await import('./dist/sanitize.js').then((m) => { if (typeof m.sanitizePublicPayload !== 'function') throw new Error('sanitizePublicPayload export missing') })\""
+    "test:dist": "node -e \"await import('./dist/stage-frame.js').then((m) => { if (typeof m.decodeStageFrame !== 'function') throw new Error('decodeStageFrame export missing') }); await import('./dist/stage-manager.js').then((m) => { if (typeof m.StageManager !== 'function') throw new Error('StageManager export missing'); if (typeof m.parseStageAssetDirectory !== 'function') throw new Error('parseStageAssetDirectory export missing') }); await import('./dist/renderer-registry.js').then((m) => { if (typeof m.buildRendererRegistry !== 'function') throw new Error('buildRendererRegistry export missing') }); await import('./dist/reference-renderer.js').then((m) => { if (typeof m.createReferenceRenderer !== 'function') throw new Error('createReferenceRenderer export missing'); if (typeof m.describeReferenceRenderState !== 'function') throw new Error('describeReferenceRenderState export missing') }); await import('./dist/video-renderer.js').then((m) => { if (typeof m.createVideoRenderer !== 'function') throw new Error('createVideoRenderer export missing'); if (typeof m.describeVideoRenderPlan !== 'function') throw new Error('describeVideoRenderPlan export missing') }); await import('./dist/sanitize.js').then((m) => { if (typeof m.sanitizePublicPayload !== 'function') throw new Error('sanitizePublicPayload export missing') })\""
   },
   "devDependencies": {
     "typescript": "^5.9.0",
