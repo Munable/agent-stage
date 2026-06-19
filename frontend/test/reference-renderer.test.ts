@@ -66,6 +66,9 @@ describe("describeReferenceRenderState", () => {
     expect(view.badges).toContain("loop 2");
     expect(view.incomingOpacity).toBeCloseTo(0.25);
     expect(view.outgoingOpacity).toBeCloseTo(0.75);
+    expect(view.incomingTransform).not.toBe("translate3d(0px, 0px, 0) rotate(0deg) scale(1)");
+    expect(view.outgoingTransform).not.toBe("translate3d(0px, 0px, 0) rotate(0deg) scale(1)");
+    expect(view.stageGlowOpacity).toBeGreaterThan(0.2);
   });
 
   it("describes a settled one-shot beat without an outgoing seam", () => {
@@ -102,5 +105,39 @@ describe("describeReferenceRenderState", () => {
     expect(view.badges).toContain("hold");
     expect(view.incomingOpacity).toBe(1);
     expect(view.outgoingOpacity).toBe(0);
+    expect(view.incomingTransform).toContain("scale(");
+    expect(view.stageGlowOpacity).toBeGreaterThan(0.35);
+  });
+
+  it("keeps a settled pose gently alive across successive render ticks", () => {
+    const renderState: RenderState = {
+      frame: {
+        character_state: "idle",
+        thinking_text: null,
+        fx: null,
+        prop: null,
+        card: null,
+        asset_call: null,
+      },
+      turnId: "t1",
+      enteredAtMs: 1000,
+      minDwellMs: 320,
+      interruptible: true,
+      seam: null,
+      reflex: null,
+      playback: {
+        kind: "one-shot",
+        assetId: "emoji.idle.hold",
+        startedAtMs: 1000,
+        durationMs: 220,
+        progress: 1,
+        settled: true,
+      },
+    };
+
+    const early = (describeReferenceRenderState as unknown as (state: RenderState, nowMs: number) => ReturnType<typeof describeReferenceRenderState>)(renderState, 1000);
+    const later = (describeReferenceRenderState as unknown as (state: RenderState, nowMs: number) => ReturnType<typeof describeReferenceRenderState>)(renderState, 1600);
+    expect(later.badges).toEqual(early.badges);
+    expect(later.incomingTransform).not.toBe(early.incomingTransform);
   });
 });
